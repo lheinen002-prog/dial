@@ -764,15 +764,109 @@ function loadState() {
     const s = { log:raw.log||{}, todos:raw.todos||[], sched:raw.sched||[],
       studyOrder:raw.studyOrder||{}, planOrder:raw.planOrder||{},
       subs:raw.subs||{}, collapsed:raw.collapsed||{}, briefNonce:raw.briefNonce||{},
-      planVersion:raw.planVersion };
+      planVersion:raw.planVersion, updatedAt:raw.updatedAt||0 };
     // new CFA schedule supersedes any saved per-day study reorders (which referenced old task names)
     if (s.planVersion !== PLAN_VERSION) { s.studyOrder = {}; s.planVersion = PLAN_VERSION; }
     return s;
-  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION}; }
+  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0}; }
 }
 let S = loadState();
-function persist(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(S)); }catch(e){} }
-persist(); // bake in any one-time migration (e.g. plan-version reset) so it's durable
+// silent=true skips the edit timestamp + cloud push (boot migrations, applying pulled state)
+function persist(silent){ try{ if(!silent) S.updatedAt = Date.now(); localStorage.setItem(STORE_KEY, JSON.stringify(S)); }catch(e){} if(!silent) syncSchedulePush(); }
+persist(true); // bake in any one-time migration (e.g. plan-version reset) so it's durable
+
+/* ================= CLOUD SYNC (private GitHub Gist) ================= */
+const SYNC = {
+  TOKEN_KEY:"dial-sync-token", GIST_KEY:"dial-sync-gist", FILE:"dial-sync.json",
+  status:"off", last:0, timer:null,
+  get token(){ return localStorage.getItem(this.TOKEN_KEY) || ""; },
+  get gistId(){ return localStorage.getItem(this.GIST_KEY) || ""; },
+};
+function syncHeaders(){ return {Authorization:"Bearer "+SYNC.token, Accept:"application/vnd.github+json"}; }
+async function syncFindOrCreateGist(){
+  if (SYNC.gistId) return SYNC.gistId;
+  const res = await fetch("https://api.github.com/gists?per_page=100", {headers:syncHeaders()});
+  if (!res.ok) throw new Error("gist list "+res.status);
+  const found = (await res.json()).find(g => g.files && g.files[SYNC.FILE]);
+  let id;
+  if (found) id = found.id;
+  else {
+    const body = {description:"DIAL sync data", public:false, files:{[SYNC.FILE]:{content:JSON.stringify(S)}}};
+    const c = await fetch("https://api.github.com/gists", {method:"POST", headers:syncHeaders(), body:JSON.stringify(body)});
+    if (!c.ok) throw new Error("gist create "+c.status);
+    id = (await c.json()).id;
+  }
+  localStorage.setItem(SYNC.GIST_KEY, id);
+  return id;
+}
+function syncApplyRemote(remote){
+  S = {log:remote.log||{}, todos:remote.todos||[], sched:remote.sched||[],
+    studyOrder:remote.studyOrder||{}, planOrder:remote.planOrder||{},
+    subs:remote.subs||{}, collapsed:remote.collapsed||{}, briefNonce:remote.briefNonce||{},
+    planVersion:remote.planVersion, updatedAt:remote.updatedAt||0};
+  if (S.planVersion !== PLAN_VERSION) { S.studyOrder = {}; S.planVersion = PLAN_VERSION; }
+  persist(true);
+  updateHeader(); renderBrief(); renderContent(false);
+}
+async function syncPull(){
+  if (!SYNC.token) return;
+  try {
+    SYNC.status = "syncing";
+    const id = await syncFindOrCreateGist();
+    const res = await fetch("https://api.github.com/gists/"+id, {headers:syncHeaders(), cache:"no-store"});
+    if (!res.ok) throw new Error("gist get "+res.status);
+    const file = (await res.json()).files[SYNC.FILE];
+    if (file && file.content) {
+      const remote = JSON.parse(file.content);
+      if ((remote.updatedAt||0) > (S.updatedAt||0)) syncApplyRemote(remote);
+    }
+    SYNC.status = "ok"; SYNC.last = Date.now(); syncBadge();
+  } catch(e) { SYNC.status = "error"; syncBadge(); }
+}
+async function syncPush(){
+  if (!SYNC.token) return;
+  try {
+    SYNC.status = "syncing";
+    const id = await syncFindOrCreateGist();
+    const body = JSON.stringify({files:{[SYNC.FILE]:{content:JSON.stringify(S)}}});
+    const res = await fetch("https://api.github.com/gists/"+id,
+      {method:"PATCH", headers:syncHeaders(), body, keepalive:true});
+    if (!res.ok) throw new Error("gist push "+res.status);
+    SYNC.status = "ok"; SYNC.last = Date.now(); syncBadge();
+  } catch(e) { SYNC.status = "error"; syncBadge(); }
+}
+function syncSchedulePush(){
+  if (!SYNC.token) return;
+  clearTimeout(SYNC.timer);
+  SYNC.timer = setTimeout(syncPush, 2500);
+}
+function syncBadge(){
+  const el = qs("#syncStatus");
+  if (el) el.textContent = syncStatusText();
+}
+function syncStatusText(){
+  if (!SYNC.token) return "";
+  if (SYNC.status==="error") return "Sync: retry pending";
+  if (SYNC.status==="syncing") return "Sync: saving…";
+  if (SYNC.last) { const d=new Date(SYNC.last); return "Synced "+d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}); }
+  return "Sync: on";
+}
+function syncConnect(token){
+  localStorage.setItem(SYNC.TOKEN_KEY, token);
+  localStorage.removeItem(SYNC.GIST_KEY);
+  syncPull().then(syncPush);
+}
+function syncDisconnect(){
+  localStorage.removeItem(SYNC.TOKEN_KEY);
+  localStorage.removeItem(SYNC.GIST_KEY);
+  SYNC.status = "off"; SYNC.last = 0;
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState==="visible") syncPull();
+  else { clearTimeout(SYNC.timer); syncPush(); }
+});
+setInterval(syncPull, 180000);
+syncPull();
 
 const TAB_ORDER = {today:0,network:1,plan:2};
 const UI = {tab:"today", addingFor:null, addingSubFor:null, focusSub:false, newQuestXP:5, confirmReset:false, curKey:tkey(),
@@ -1384,6 +1478,18 @@ function todayHTML() {
           + (current?"<span class='youchip'>You</span>":"")
           + "</span><span class='rowsub' style='margin:0'>"+fmtNum(l.min)+"</span></div>";
       }).join("")
+    + "</div>";
+
+  data += "<div class='datarow'>"
+    + (SYNC.token
+        ? "<span class='ghost' id='syncStatus'>"+syncStatusText()+"</span>"
+          + "<button class='ghost' data-act='syncnow'>Sync now</button>"
+          + "<button class='ghost danger' data-act='syncoff'>Disconnect sync</button>"
+        : UI.syncSetup
+          ? "<input id='syncInput' type='password' placeholder='Paste GitHub token' style='background:var(--inset);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--text);width:190px'>"
+            + "<button class='ghost' data-act='syncsave'>Connect</button>"
+            + "<button class='ghost' data-act='synccancel'>Cancel</button>"
+          : "<button class='ghost' data-act='syncsetup'>Set up sync</button>")
     + "</div>";
 
   data += "<div class='datarow'>"
@@ -2130,6 +2236,14 @@ document.addEventListener("click", e => {
   else if (a==="export") exportBackup();
   else if (a==="import") { const f=qs("#importFile"); if (f) f.click(); }
   else if (a==="ics") { const f=qs("#icsFile"); if (f) f.click(); }
+  else if (a==="syncsetup") { UI.syncSetup = true; renderContent(false); const i=qs("#syncInput"); if(i) i.focus(); }
+  else if (a==="synccancel") { UI.syncSetup = false; renderContent(false); }
+  else if (a==="syncsave") {
+    const i = qs("#syncInput"), t = i ? i.value.trim() : "";
+    if (t) { syncConnect(t); UI.syncSetup = false; audioCue("add"); renderContent(false); }
+  }
+  else if (a==="syncnow") { audioCue("press"); syncPull().then(syncPush); }
+  else if (a==="syncoff") { syncDisconnect(); audioCue("remove"); renderContent(false); }
   else if (a==="resetask") { UI.confirmReset = true; renderContent(false); }
   else if (a==="resetcancel") { UI.confirmReset = false; renderContent(false); }
   else if (a==="resetconfirm") resetAll();

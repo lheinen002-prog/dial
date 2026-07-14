@@ -1,6 +1,6 @@
 // DIAL service worker — network-first so updates land immediately,
 // cache fallback keeps the app usable offline.
-const CACHE = 'dial-v1';
+const CACHE = 'dial-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -18,6 +18,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== location.origin) return; // don't cache API/CDN calls
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();
