@@ -1202,8 +1202,24 @@ function briefingText() {
   else if (dow>=1 && dow<=6) s2pool.push("Train today and the six-day week starts building.");
   const s2 = pick(s2pool);
 
+  // calendar line — pulled from the synced Outlook feed, today's events only
+  const todayEvents = (S.sched||[]).filter(s=>s.date===key && !s.done)
+    .sort((a,b)=>a.label.localeCompare(b.label));
+  let s3 = "";
+  if (S.calUrl && todayEvents.length) {
+    const first = todayEvents[0].label.replace(/^\d{1,2}:\d{2}(am|pm)\s*·\s*/i,"");
+    s3 = " " + pick([
+      todayEvents.length+" thing"+(todayEvents.length>1?"s":"")+" on the calendar today, first up: "+first+".",
+      "Calendar has "+todayEvents.length+" booked today, starting with "+first+". Work around them, not through them.",
+      todayEvents.length===1 ? "One thing on the calendar today: "+first+". Everything else is yours." :
+        todayEvents.length+" calendar blocks today. "+first+" is first."
+    ]);
+  } else if (S.calUrl && !todayEvents.length) {
+    s3 = " " + pick(["Calendar's clear today. No excuses for an empty board.","Nothing booked today. That's more hours for the plan, not for scrolling."]);
+  }
+
   const mantra = r()<0.3 ? " " + pick(["Volume negates luck.","Pressure is a privilege.","Do it today."]) : "";
-  return s1 + " " + s2 + mantra;
+  return s1 + " " + s2 + s3 + mantra;
 }
 function renderBrief() {
   const el = qs("#briefText");
@@ -2101,7 +2117,7 @@ function mergeICS(text) {
     if (uid) seenUids.add(uid);
     added++;
   }
-  if (added) { persist(); updateHeader(); renderContent(false); }
+  if (added) { persist(); updateHeader(); renderBrief(); renderContent(false); }
   return added;
 }
 
