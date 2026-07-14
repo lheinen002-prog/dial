@@ -2124,8 +2124,9 @@ async function calSync(announce) {
   calSyncing = true;
   try {
     const url = S.calUrl.replace(/^webcal:\/\//i, "https://");
-    // published .ics feeds don't send CORS headers, so read through a passthrough proxy
-    const res = await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url), {cache:"no-store"});
+    // published .ics feeds don't send CORS headers; relay server-side through our own
+    // Cloudflare Worker so the feed's embedded access token never reaches a third party
+    const res = await fetch("https://dial-cal-relay.lheinen002.workers.dev/?url="+encodeURIComponent(url), {cache:"no-store"});
     if (!res.ok) throw new Error("cal fetch "+res.status);
     const text = await res.text();
     if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("not an ics feed");
