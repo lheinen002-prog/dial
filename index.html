@@ -92,6 +92,11 @@
   .tminus{font-size:24px;font-weight:800;margin-top:4px;
     background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
   .sub{font-size:11px;color:var(--faint);margin-top:2px}
+  .debtchip{display:inline-flex;margin:9px 0 0 8px;padding:5px 11px;border-radius:999px;
+    background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);color:#f87171;
+    font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;
+    animation:debtpulse 2.4s ease-in-out infinite}
+  @keyframes debtpulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}50%{box-shadow:0 0 12px 0 rgba(248,113,113,.35)}}
   .spark{display:flex;gap:6px;height:36px;align-items:flex-end;margin-top:16px}
   .spark>i{flex:1;border-radius:5px 5px 0 0;min-height:3px;
     transition:height .6s var(--spring),background .4s var(--ease)}
@@ -518,7 +523,7 @@
       <div>
         <div class="label" id="lvlLabel">Lucas</div>
         <div class="xrow"><span class="xp" id="xpTotal">0</span><span class="xp-unit">XP</span></div>
-        <div class="chip zero" id="dayChip"><span class="chip-fill" id="chipFill"></span><span class="chip-text" id="chipText"></span></div><span class="streakbadge" id="streakBadge" hidden></span>
+        <div class="chip zero" id="dayChip"><span class="chip-fill" id="chipFill"></span><span class="chip-text" id="chipText"></span></div><span class="streakbadge" id="streakBadge" hidden></span><span class="debtchip" id="debtChip" hidden></span>
       </div>
       <div class="right">
         <div class="label">CFA L1</div>
@@ -571,6 +576,28 @@ const SAYINGS = [
   "VOLUME NEGATES LUCK",
   "PRESSURE IS A PRIVILEGE",
   "SOMEONE IS COMING FOR EVERYTHING YOU HAVE",
+  "THE WORK WORKS ON YOU MORE THAN YOU WORK ON IT",
+  "YOU DON'T BECOME CONFIDENT BY SHOUTING AFFIRMATIONS. YOU DO THE REPS.",
+  "THE ONLY WAY TO LOSE IS TO QUIT",
+  "OUTWORK YOUR SELF-DOUBT",
+  "AMATEURS NEGOTIATE WITH THEIR CALENDAR. PROS OBEY IT.",
+  "NOBODY IS COMING TO SAVE YOU. GOOD. YOU DON'T NEED THEM.",
+  "THE PAIN OF DISCIPLINE OR THE PAIN OF REGRET. PICK.",
+  "BORED IS WHAT WINNING FEELS LIKE FROM THE INSIDE",
+  "DO THE BORING WORK NOBODY CLAPS FOR",
+  "YOUR COMPETITION HOPES YOU SKIP TODAY",
+  "SKILL STACKS BEAT TALENT EVERY TIME",
+  "100 CALLS MAKES THE FEAR SHUT UP",
+  "YOU CAN'T LOSE IF YOU DON'T STOP",
+  "THE MARKET PAYS FOR PROOF, NOT PROMISES",
+  "EVERY REP IS A VOTE FOR WHO YOU'RE BECOMING",
+  "HARD CHOICES, EASY LIFE. EASY CHOICES, HARD LIFE.",
+  "INPUTS ARE YOURS. OUTCOMES FOLLOW.",
+  "WHEN IT'S HEAVY, THAT'S THE SET THAT COUNTS",
+  "SUCCESS IS JUST UNGLAMOROUS WORK DONE DAILY",
+  "STOP COUNTING DAYS. MAKE THE DAYS COUNT.",
+  "THE GOAL ISN'T MOTIVATION. IT'S MOMENTUM.",
+  "NO ONE OUTSOURCES THEIR PUSHUPS",
 ];
 const LEVELS = [
   {name:"Intern",min:0},{name:"Analyst",min:330},{name:"Associate",min:660},
@@ -690,8 +717,35 @@ const allDayKeys = (log,todos,sched) => {
   return [...keys];
 };
 
+/* ---------- stakes: missed non-negotiables become XP debt ---------- */
+const STAKES_START = "2026-07-14"; // debt only accrues from the day stakes went live
+const DEBT = {task:10, gym:10, lights:5};
+const dayDebt = key => {
+  if (key < STAKES_START || key >= tkey()) return 0; // only completed past days owe
+  const e = (S && S.log[key]) || {};
+  const plan = planFor(key);
+  let owed = plan.filter((_,i)=>!(e.tasks && e.tasks[i])).length * DEBT.task;
+  const dow = parseKey(key).getDay();
+  if (dow>=1 && dow<=6 && !e.gym) owed += DEBT.gym;
+  if (!e.lights) owed += DEBT.lights;
+  return owed;
+};
+const totalDebt = () => {
+  let sum = 0;
+  const d = parseKey(STAKES_START), stop = tkey();
+  for (let i=0;i<400 && dkey(d)<stop;i++) { sum += dayDebt(dkey(d)); d.setDate(d.getDate()+1); }
+  return sum;
+};
+const weekDebt = () => {
+  let sum = 0;
+  const mon = mondayOf(new Date()), d = new Date(mon);
+  for (let i=0;i<7;i++) { sum += dayDebt(dkey(d)); d.setDate(d.getDate()+1); }
+  return sum;
+};
+
 const totalXP = (log,todos,sched) =>
-  allDayKeys(log,todos,sched).reduce((s,k)=>s+dayXP(k,log[k],todos,sched),0) + streakBonuses(log);
+  Math.max(0, allDayKeys(log,todos,sched).reduce((s,k)=>s+dayXP(k,log[k],todos,sched),0)
+    + streakBonuses(log) + ((S && S.baseXP)||0) - totalDebt());
 
 const weekStats = (log,todos,sched,today) => {
   const mon = mondayOf(today);
@@ -764,11 +818,14 @@ function loadState() {
     const s = { log:raw.log||{}, todos:raw.todos||[], sched:raw.sched||[],
       studyOrder:raw.studyOrder||{}, planOrder:raw.planOrder||{},
       subs:raw.subs||{}, collapsed:raw.collapsed||{}, briefNonce:raw.briefNonce||{},
-      planVersion:raw.planVersion, updatedAt:raw.updatedAt||0 };
+      planVersion:raw.planVersion, updatedAt:raw.updatedAt||0,
+      // one-time career restore: existing installs without baseXP start at Sr Associate
+      baseXP:raw.baseXP===undefined ? 990 : raw.baseXP,
+      calUrl:raw.calUrl||"" };
     // new CFA schedule supersedes any saved per-day study reorders (which referenced old task names)
     if (s.planVersion !== PLAN_VERSION) { s.studyOrder = {}; s.planVersion = PLAN_VERSION; }
     return s;
-  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0}; }
+  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0,baseXP:990,calUrl:""}; }
 }
 let S = loadState();
 // silent=true skips the edit timestamp + cloud push (boot migrations, applying pulled state)
@@ -803,7 +860,9 @@ function syncApplyRemote(remote){
   S = {log:remote.log||{}, todos:remote.todos||[], sched:remote.sched||[],
     studyOrder:remote.studyOrder||{}, planOrder:remote.planOrder||{},
     subs:remote.subs||{}, collapsed:remote.collapsed||{}, briefNonce:remote.briefNonce||{},
-    planVersion:remote.planVersion, updatedAt:remote.updatedAt||0};
+    planVersion:remote.planVersion, updatedAt:remote.updatedAt||0,
+    baseXP:remote.baseXP===undefined ? 990 : remote.baseXP,
+    calUrl:remote.calUrl||""};
   if (S.planVersion !== PLAN_VERSION) { S.studyOrder = {}; S.planVersion = PLAN_VERSION; }
   persist(true);
   updateHeader(); renderBrief(); renderContent(false);
@@ -1191,6 +1250,12 @@ function updateHeader() {
   sb.hidden = ws<2;
   if (ws>=2) sb.textContent = "🔥 "+ws;
 
+  // XP debt chip — missed non-negotiables cost you until you out-earn them
+  const owed = totalDebt();
+  const dc = qs("#debtChip");
+  dc.hidden = owed<=0;
+  if (owed>0) dc.textContent = "−"+owed+" XP DEBT";
+
   // 7-day sparkline
   const bars = [];
   for (let i=6;i>=0;i--) {
@@ -1215,8 +1280,10 @@ function updateHeader() {
   qs("#lvlName").textContent = lvl.name;
   qs("#lvlNext").textContent = next ? fmtNum(next.min-total)+" XP to "+next.name : "Max level";
 
-  // rotating daily saying
-  const saying = SAYINGS[dayOfYear(d) % SAYINGS.length];
+  // rotating daily saying — debt hijacks the banner until it's cleared
+  const saying = owed>0
+    ? "YOU OWE "+owed+" XP. WORK IT OFF."
+    : SAYINGS[dayOfYear(d) % SAYINGS.length];
   const se = qs("#saying");
   if (se.dataset.s !== saying) {
     se.dataset.s = saying;
@@ -1490,6 +1557,18 @@ function todayHTML() {
             + "<button class='ghost' data-act='syncsave'>Connect</button>"
             + "<button class='ghost' data-act='synccancel'>Cancel</button>"
           : "<button class='ghost' data-act='syncsetup'>Set up sync</button>")
+    + "</div>";
+
+  data += "<div class='datarow'>"
+    + (S.calUrl
+        ? "<span class='ghost'>Outlook calendar: connected</span>"
+          + "<button class='ghost' data-act='calnow'>Refresh now</button>"
+          + "<button class='ghost danger' data-act='caloff'>Disconnect calendar</button>"
+        : UI.calSetup
+          ? "<input id='calInput' type='text' inputmode='url' placeholder='Paste published .ics URL' style='background:var(--inset);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--text);width:220px'>"
+            + "<button class='ghost' data-act='calsave'>Connect</button>"
+            + "<button class='ghost' data-act='calcancel'>Cancel</button>"
+          : "<button class='ghost' data-act='calsetup'>Connect Outlook calendar</button>")
     + "</div>";
 
   data += "<div class='datarow'>"
@@ -2003,29 +2082,34 @@ function parseICS(text) {
   }
   return events;
 }
+function mergeICS(text) {
+  const evs = parseICS(text);
+  const start = new Date(); start.setHours(0,0,0,0);
+  const end = new Date(start); end.setDate(end.getDate()+60);
+  const seenUids = new Set(S.sched.map(s=>s.uid).filter(Boolean));
+  const seenLabels = new Set(S.sched.map(s=>s.date+"|"+s.label));
+  let added = 0;
+  for (const ev of evs) {
+    if (!(ev.dt>=start && ev.dt<end)) continue;
+    const date = dkey(ev.dt);
+    const label = (ev.hasTime ? fmtTime(ev.dt.getHours()*60+ev.dt.getMinutes())+" · " : "") + ev.summary;
+    const uid = ev.uid ? ev.uid+"|"+date : null;
+    if (uid && seenUids.has(uid)) continue;
+    if (seenLabels.has(date+"|"+label)) continue;
+    S.sched.push({id:Date.now()+added, label, date, done:false, uid});
+    seenLabels.add(date+"|"+label);
+    if (uid) seenUids.add(uid);
+    added++;
+  }
+  if (added) { persist(); updateHeader(); renderContent(false); }
+  return added;
+}
+
 function importICS(file) {
   const r = new FileReader();
   r.onload = () => {
     try {
-      const evs = parseICS(String(r.result));
-      const start = new Date(); start.setHours(0,0,0,0);
-      const end = new Date(start); end.setDate(end.getDate()+60);
-      const seenUids = new Set(S.sched.map(s=>s.uid).filter(Boolean));
-      const seenLabels = new Set(S.sched.map(s=>s.date+"|"+s.label));
-      let added = 0;
-      for (const ev of evs) {
-        if (!(ev.dt>=start && ev.dt<end)) continue;
-        const date = dkey(ev.dt);
-        const label = (ev.hasTime ? fmtTime(ev.dt.getHours()*60+ev.dt.getMinutes())+" · " : "") + ev.summary;
-        const uid = ev.uid ? ev.uid+"|"+date : null;
-        if (uid && seenUids.has(uid)) continue;
-        if (seenLabels.has(date+"|"+label)) continue;
-        S.sched.push({id:Date.now()+added, label, date, done:false, uid});
-        seenLabels.add(date+"|"+label);
-        if (uid) seenUids.add(uid);
-        added++;
-      }
-      persist(); updateHeader(); renderContent(false);
+      const added = mergeICS(String(r.result));
       flash(added ? "+"+added+" events imported" : "No new events in next 60 days");
       if (added) audioCue("unlock"); else audioCue("select");
     } catch(e) { audioCue("remove"); flash("Calendar import failed"); }
@@ -2033,8 +2117,28 @@ function importICS(file) {
   r.readAsText(file);
 }
 
+/* ---------- live calendar subscription (Outlook published .ics URL) ---------- */
+let calSyncing = false;
+async function calSync(announce) {
+  if (!S.calUrl || calSyncing) return;
+  calSyncing = true;
+  try {
+    const url = S.calUrl.replace(/^webcal:\/\//i, "https://");
+    // published .ics feeds don't send CORS headers, so read through a passthrough proxy
+    const res = await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url), {cache:"no-store"});
+    if (!res.ok) throw new Error("cal fetch "+res.status);
+    const text = await res.text();
+    if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("not an ics feed");
+    const added = mergeICS(text);
+    if (announce) { flash(added ? "+"+added+" events from calendar" : "Calendar up to date"); audioCue(added?"unlock":"select"); }
+  } catch(e) {
+    if (announce) { flash("Calendar sync failed — check the URL"); audioCue("remove"); }
+  } finally { calSyncing = false; }
+}
+setInterval(()=>calSync(false), 6*3600*1000);
+
 function resetAll() {
-  S = {log:{}, todos:[], sched:[], studyOrder:{}, planOrder:{}, subs:{}, collapsed:{}, briefNonce:{}, planVersion:PLAN_VERSION};
+  S = {log:{}, todos:[], sched:[], studyOrder:{}, planOrder:{}, subs:{}, collapsed:{}, briefNonce:{}, planVersion:PLAN_VERSION, baseXP:0, calUrl:""};
   UI.confirmReset = false;
   persist();
   updateHeader(); renderBrief(); renderContent(false);
@@ -2244,6 +2348,14 @@ document.addEventListener("click", e => {
   }
   else if (a==="syncnow") { audioCue("press"); syncPull().then(syncPush); }
   else if (a==="syncoff") { syncDisconnect(); audioCue("remove"); renderContent(false); }
+  else if (a==="calsetup") { UI.calSetup = true; renderContent(false); const i=qs("#calInput"); if(i) i.focus(); }
+  else if (a==="calcancel") { UI.calSetup = false; renderContent(false); }
+  else if (a==="calsave") {
+    const i = qs("#calInput"), u = i ? i.value.trim() : "";
+    if (u) { S.calUrl = u; UI.calSetup = false; persist(); audioCue("add"); renderContent(false); calSync(true); }
+  }
+  else if (a==="calnow") { audioCue("press"); calSync(true); }
+  else if (a==="caloff") { S.calUrl = ""; persist(); audioCue("remove"); renderContent(false); }
   else if (a==="resetask") { UI.confirmReset = true; renderContent(false); }
   else if (a==="resetcancel") { UI.confirmReset = false; renderContent(false); }
   else if (a==="resetconfirm") resetAll();
@@ -2283,6 +2395,7 @@ updateHeader();
 renderBrief();
 renderContent(true);
 updateNav();
+calSync(false);
 
 /* boot intro: plays every open, tap to skip */
 (function(){
