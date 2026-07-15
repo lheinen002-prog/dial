@@ -341,7 +341,8 @@
     border-top:1px solid var(--border)}
   .nav-inner{max-width:430px;margin:0 auto;display:flex;position:relative;
     padding:14px 12px calc(env(safe-area-inset-bottom,0px) + 16px)}
-  #navPill{position:absolute;top:12px;height:calc(100% - 26px - env(safe-area-inset-bottom,0px));
+  /* insets, not height — keeps the pill hugging the buttons when .nav-inner padding changes */
+  #navPill{position:absolute;top:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
     width:calc((100% - 24px)/3);border-radius:14px;
     background:rgba(255,176,46,.09);border:1px solid rgba(255,176,46,.22);
     transition:left .38s var(--spring)}
@@ -467,7 +468,7 @@
       border:1px solid var(--border);border-radius:22px;overflow:hidden;
       box-shadow:0 14px 40px rgba(0,0,0,.5)}
     .nav-inner{padding:8px 12px 10px}
-    #navPill{height:calc(100% - 14px)}
+    #navPill{top:6px;bottom:8px}
   }
   @media (max-width: 520px){
     .wrap{padding-left:12px;padding-right:12px}
