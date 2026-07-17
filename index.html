@@ -1676,7 +1676,13 @@ function networkHTML() {
 function planHTML() {
   const key = tkey(), d = new Date();
   let h = "<div class='mantra-strip'>Someone is coming for everything you have.</div>";
-  for (let i=0;i<=7;i++) {
+  // horizon: at least a week ahead, but stretch to cover every remaining
+  // day that has study-plan content (e.g. through exam day Aug 20)
+  const planKeys = Object.keys(STUDY_PLAN).filter(k=>k>=key);
+  const lastPlan = planKeys.length ? planKeys.sort().slice(-1)[0] : key;
+  const spanDays = Math.round((parseKey(lastPlan)-parseKey(key))/86400000);
+  const horizon = Math.min(120, Math.max(7, spanDays));
+  for (let i=0;i<=horizon;i++) {
     const dd = new Date(d); dd.setDate(dd.getDate()+i);
     const k = dkey(dd);
     const items = planItems(k);
