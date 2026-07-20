@@ -1,6 +1,6 @@
 // DIAL service worker — network-first so updates land immediately,
 // cache fallback keeps the app usable offline.
-const CACHE = 'dial-v4';
+const CACHE = 'dial-v5';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
