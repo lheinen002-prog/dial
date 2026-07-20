@@ -37,9 +37,9 @@
     --grad:linear-gradient(135deg,#FFB02E,#FF6B3D);
     --spring:cubic-bezier(.34,1.45,.64,1);
     --ease:cubic-bezier(.22,1,.36,1);
-    /* Floor value — matches the safe-area inset (34px on 13 Pro Max) directly,
-       just enough clearance for the home indicator without extra dead space. */
-    --nav-pad-b:max(6px, calc(env(safe-area-inset-bottom, 0px) - 26px));
+    /* Pushed to near-zero per Lucas's request — labels sit almost directly on
+       the safe-area inset. If this crowds the home-swipe gesture, back off. */
+    --nav-pad-b:max(2px, calc(env(safe-area-inset-bottom, 0px) - 32px));
   }
   html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);
     font-family:'Outfit',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -350,7 +350,7 @@
     background:rgba(255,176,46,.09);border:1px solid rgba(255,176,46,.22);
     transition:left .38s var(--spring)}
   #nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-    padding:7px 0;z-index:1;color:var(--faint);transition:transform .15s var(--spring)}
+    padding:7px 0 3px;z-index:1;color:var(--faint);transition:transform .15s var(--spring)}
   #nav button:active{transform:scale(.9)}
   #nav .ico{font-size:17px;line-height:1;transition:all .28s var(--spring)}
   #nav button.active .ico{color:var(--amber);transform:translateY(-2px) scale(1.15)}
@@ -575,7 +575,7 @@
 <script>
 'use strict';
 /* ================= CONFIG ================= */
-const BUILD = "07-17.6"; // bump on each deploy — shown at the bottom of Today
+const BUILD = "07-17.7"; // bump on each deploy — shown at the bottom of Today
 const EXAM = new Date(2026,7,20);
 const PASS_LINE = 300, DAILY_TARGET = 40;
 const SAYINGS = [
