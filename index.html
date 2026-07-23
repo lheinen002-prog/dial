@@ -575,7 +575,7 @@
 <script>
 'use strict';
 /* ================= CONFIG ================= */
-const BUILD = "07-17.7"; // bump on each deploy — shown at the bottom of Today
+const BUILD = "07-17.8"; // bump on each deploy — shown at the bottom of Today
 const EXAM = new Date(2026,7,20);
 const PASS_LINE = 300, DAILY_TARGET = 40;
 const SAYINGS = [
@@ -651,42 +651,11 @@ const STUDY_PLAN = {
   "2026-07-18":["Cont. MC: Basics of Portfolio Planning and Construction","R87 QBank","MC: The Behavioral Biases of Individuals"],
   "2026-07-19":["R88 QBank","MC: Introduction to Risk Management"],
   "2026-07-20":["Topic Quiz - Portfolio Management","QBank Review Quiz","R89 QBank"],
-  // ===== FINAL MONTH BATTLE PLAN (Jul 21 – Aug 20) — CFAI QBank volume + 4 mocks =====
-  // Week 1: FSA + Quant (flagged weak spots)
-  "2026-07-21":["FSA — income statement, revenue recognition, inventory (100 CFAI Qs, timed 90s)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-22":["FSA — long-lived assets, taxes, leases, earnings quality (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-23":["Quant — TVM, probability, distributions (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-24":["Quant — hypothesis testing, regression (100 CFAI Qs)","Build formula sheet by hand (Quant + FSA pages)","Log every miss in error log (code K/M/C/T)"],
+  // ===== FINAL MONTH — mocks kept on Saturdays; daily prep self-managed via CFA card =====
   "2026-07-25":["KAPLAN MOCK 1 — 180 Qs full timed sim (9AM · 2×135 min). Target 65%+. Score it, then STOP — no same-day review"],
-  "2026-07-26":["Review ALL 180 mock Qs + log every miss (K/M/C/T)","Redo 30-50 error-log Qs in worst-scoring topics"],
-  // Week 2: Fixed Income + Equity (biggest exam weights)
-  "2026-07-27":["Fixed Income — features, valuation, yield measures (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-28":["Fixed Income — duration, convexity, credit risk (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-29":["Equity — market organization, indexes, efficiency (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-30":["Equity — valuation: DDM, multiples, industry analysis (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-07-31":["Mixed Fixed Income + Equity + error-log redo (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
   "2026-08-01":["KAPLAN MOCK 2 — 180 Qs full timed sim (9AM). Target 68%+. Score it, then STOP — no same-day review"],
-  "2026-08-02":["Review ALL 180 mock Qs + log every miss (K/M/C/T)","Redo 30-50 error-log Qs in worst-scoring topics"],
-  // Week 3: Derivatives, Alts, Portfolio Mgmt, Corp Issuers, Econ
-  "2026-08-03":["Derivatives — forwards, futures, options, swaps (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-04":["Alternatives — PE, real estate, hedge funds, commodities (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-05":["Portfolio Mgmt — risk/return, CAPM, IPS (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-06":["Corporate Issuers (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-07":["Economics — supply/demand, monetary policy, FX (100 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
   "2026-08-08":["CFAI MOCK 1 — 180 Qs full timed sim (9AM). Target 70%+. Score it, then STOP — no same-day review"],
-  "2026-08-09":["Review ALL 180 mock Qs + log every miss (K/M/C/T)","Redo 30-50 error-log Qs in worst-scoring topics"],
-  // Week 4: Ethics deep pass + weak-topic cleanup
-  "2026-08-10":["Re-read Standards I–IV (actual Handbook language) + ethics Qs (60 Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-11":["Re-read Standards V–VII + GIPS overview + ethics Qs (60 Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-12":["Worst topic from CFAI Mock 1 (80 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-13":["Second-worst topic from CFAI Mock 1 (80 CFAI Qs)","Log every miss in error log (code K/M/C/T)"],
-  "2026-08-14":["Mixed ethics + error-log redo (70 Qs)","Log every miss in error log (code K/M/C/T)"],
   "2026-08-15":["CFAI MOCK 2 — 180 Qs full timed sim (9AM). Target 72%+. Score it, then STOP — no same-day review"],
-  "2026-08-16":["Review ALL 180 mock Qs + log every miss (K/M/C/T)","Redo 30 error-log Qs in worst-scoring topics"],
-  // Final stretch
-  "2026-08-17":["Error log ONLY — redo every question missed twice (~60 Qs)","Formula sheet full pass — reproduce every page blind"],
-  "2026-08-18":["Light — ethics skim + formula sheet + 30-40 easy confidence Qs (done by 6PM)","Pack for Terre Haute — passport ID, 2× BA II Plus, printed Prometric confirmation"],
-  "2026-08-19":["OFF — 20-min formula review only. Travel logistics. Sleep 8+ hours."],
   "2026-08-20":["🎯 EXAM DAY — CFA Level 1 · Terre Haute Ivy Tech Prometric. Arrive 30 min early. You built this."],
 };
 
@@ -705,12 +674,15 @@ const dayOfYear = d => Math.floor((d - new Date(d.getFullYear(),0,0))/86400000);
 const daysToExam = () => { const n=new Date(); return Math.max(0, Math.ceil((EXAM - new Date(n.getFullYear(),n.getMonth(),n.getDate()))/86400000)); };
 
 const planFor = key => {
-  if (S.studyOrder && Array.isArray(S.studyOrder[key])) return S.studyOrder[key];
-  if (STUDY_PLAN[key]) return STUDY_PLAN[key];
-  const d = parseKey(key);
-  if (d >= new Date(2026,7,2) && d < EXAM) return ["Review: weakest topic","Review: timed QBank set"];
-  return [];
+  // base = reordered list, else the hardcoded plan (now just mocks + exam), else empty
+  const base = (S.studyOrder && Array.isArray(S.studyOrder[key])) ? S.studyOrder[key].slice()
+    : (STUDY_PLAN[key] ? STUDY_PLAN[key].slice() : []);
+  // user-added CFA tasks for the day, appended after the base
+  const extra = (S.studyAdd && Array.isArray(S.studyAdd[key])) ? S.studyAdd[key] : [];
+  return base.concat(extra);
 };
+// how many of a day's tasks are user-added (they live at the tail of planFor)
+const studyAddCount = key => (S.studyAdd && Array.isArray(S.studyAdd[key])) ? S.studyAdd[key].length : 0;
 
 /* ================= XP MATH ================= */
 const dayXP = (key, e, todos, sched) => {
@@ -756,7 +728,10 @@ const dayDebt = key => {
   if (key < STAKES_START || key >= tkey()) return 0; // only completed past days owe
   const e = (S && S.log[key]) || {};
   const plan = planFor(key);
-  let owed = plan.filter((_,i)=>!(e.tasks && e.tasks[i])).length * DEBT.task;
+  // only the hardcoded plan (mocks/exam) owes debt — self-added CFA tasks earn XP but never punish
+  const baseCount = plan.length - studyAddCount(key);
+  let owed = 0;
+  for (let i=0;i<baseCount;i++) if (!(e.tasks && e.tasks[i])) owed += DEBT.task;
   const dow = parseKey(key).getDay();
   if (dow>=1 && dow<=6 && !e.gym) owed += DEBT.gym;
   if (!e.lights) owed += DEBT.lights;
@@ -843,12 +818,12 @@ const levelFor = xp => {
 
 /* ================= STATE ================= */
 const STORE_KEY = "lucas-hq-v1";
-const PLAN_VERSION = 3; // bump when STUDY_PLAN is replaced — clears stale per-day reorders
+const PLAN_VERSION = 4; // bump when STUDY_PLAN is replaced — clears stale per-day reorders
 function loadState() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
     const s = { log:raw.log||{}, todos:raw.todos||[], sched:raw.sched||[],
-      studyOrder:raw.studyOrder||{}, planOrder:raw.planOrder||{},
+      studyOrder:raw.studyOrder||{}, planOrder:raw.planOrder||{}, studyAdd:raw.studyAdd||{},
       subs:raw.subs||{}, collapsed:raw.collapsed||{}, briefNonce:raw.briefNonce||{},
       planVersion:raw.planVersion, updatedAt:raw.updatedAt||0,
       // one-time career restore: existing installs without baseXP start at Sr Associate
@@ -857,7 +832,7 @@ function loadState() {
     // new CFA schedule supersedes any saved per-day study reorders (which referenced old task names)
     if (s.planVersion !== PLAN_VERSION) { s.studyOrder = {}; s.planVersion = PLAN_VERSION; }
     return s;
-  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0,baseXP:990,calUrl:""}; }
+  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},studyAdd:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0,baseXP:990,calUrl:""}; }
 }
 let S = loadState();
 // silent=true skips the edit timestamp + cloud push (boot migrations, applying pulled state)
@@ -890,7 +865,7 @@ async function syncFindOrCreateGist(){
 }
 function syncApplyRemote(remote){
   S = {log:remote.log||{}, todos:remote.todos||[], sched:remote.sched||[],
-    studyOrder:remote.studyOrder||{}, planOrder:remote.planOrder||{},
+    studyOrder:remote.studyOrder||{}, planOrder:remote.planOrder||{}, studyAdd:remote.studyAdd||{},
     subs:remote.subs||{}, collapsed:remote.collapsed||{}, briefNonce:remote.briefNonce||{},
     planVersion:remote.planVersion, updatedAt:remote.updatedAt||0,
     baseXP:remote.baseXP===undefined ? 990 : remote.baseXP,
@@ -1534,18 +1509,23 @@ function todayHTML() {
   }
 
   const cfaPct = plan.length ? Math.round(tasksDone/plan.length*100) : 0;
+  const cfaBaseCount = plan.length - studyAddCount(key); // hardcoded (mock/exam) rows sit before user-added ones
   left += "<div class='card study-card'><div class='seclabel'><span class='label'>CFA · "+DAY_NAMES[dow]+"</span>"
-    + "<span class='xpchip"+(allClear?" won":"")+"' style='margin-left:0"+(allClear?";background:rgba(52,211,153,0.12)":"")+"'>"
-    + (allClear ? tasksDone+"/"+plan.length+" · +15 bonus" : tasksDone+"/"+plan.length+" · next +10")+"</span></div>"
+    + (plan.length ? "<span class='xpchip"+(allClear?" won":"")+"' style='margin-left:0"+(allClear?";background:rgba(52,211,153,0.12)":"")+"'>"
+        + (allClear ? tasksDone+"/"+plan.length+" · +15 bonus" : tasksDone+"/"+plan.length+" · next +10")+"</span>" : "")
+    + "</div>"
     + (plan.length ? barHTML("cfa", cfaPct, allClear, false)+"<div style='height:6px'></div>" : "")
-    + (plan.length===0 ? "<div class='rowsub' style='padding:6px 0'>No study tasks booked today.</div>" : "")
+    + "<div style='display:flex;gap:8px;margin-bottom:10px'>"
+    + "<input id='studyInput' class='tinput' placeholder='Add a CFA task for today…'>"
+    + "<button class='pbtn' data-act='addstudy'>Add</button></div>"
     + "<div class='drop-list' data-group='tstudy'>"
-    + plan.map((label,i)=>(i?"<div class='divider'></div>":"")+rowHTML({
+    + plan.map((label,i)=>(i?"<div class='divider'></div>":"")+rowHTML(Object.assign({
         key:"task-"+i, done:!!(entry.tasks && entry.tasks[i]), label, xp:XPV.task, next:i===nextTask,
         subKey:"s:"+key+"|"+label,
         drag:{group:"tstudy", kind:"study", sidx:i}
-      })).join("")
+      }, i>=cfaBaseCount ? {delAct:"delstudy", delId:i} : {}))).join("")
     + "</div>"
+    + (plan.length===0 ? "<div class='rowsub' style='padding:2px 0 0'>Nothing booked. Add today's CFA work above.</div>" : "")
     + (plan.length && !allClear ? "<div class='study-prompt'>One tap moves the board and banks progress.</div>" : "")
     + "</div>";
 
@@ -1943,6 +1923,35 @@ function addSched(dateKey) {
   audioCue("add");
   mutate(()=>{ S.sched.push({id:Date.now(), label, date:dateKey, done:false}); });
 }
+function addStudy() {
+  const inp = qs("#studyInput");
+  const label = inp ? inp.value.trim() : "";
+  if (!label) return;
+  if (inp) inp.value = "";
+  const key = tkey();
+  audioCue("add");
+  mutate(()=>{
+    if (!S.studyAdd[key]) S.studyAdd[key] = [];
+    S.studyAdd[key].push(label);
+    // if the day was manually reordered, the reordered list is the base — keep it in sync
+    if (Array.isArray(S.studyOrder[key])) S.studyOrder[key] = null;
+  });
+}
+function delStudy(idx) {
+  const key = tkey();
+  const baseCount = planFor(key).length - studyAddCount(key);
+  const pos = idx - baseCount; // position within the user-added tail
+  if (!S.studyAdd[key] || pos<0 || pos>=S.studyAdd[key].length) return;
+  audioCue("remove");
+  mutate(()=>{
+    S.studyAdd[key].splice(pos,1);
+    // done-map is an index-keyed object; drop idx and shift every higher key down one
+    const old = (S.log[key] && S.log[key].tasks) || {};
+    const tasks = {};
+    for (const k in old) { const j=+k; if (j<idx) tasks[j]=old[k]; else if (j>idx) tasks[j-1]=old[k]; }
+    if (S.log[key]) S.log[key] = Object.assign({}, S.log[key], {tasks});
+  });
+}
 /* ---- unified day-item model (study tasks + events merged) ---- */
 function getStudyList(k) {
   const labels = planFor(k);
@@ -2202,7 +2211,7 @@ async function calSync(announce) {
 setInterval(()=>calSync(false), 6*3600*1000);
 
 function resetAll() {
-  S = {log:{}, todos:[], sched:[], studyOrder:{}, planOrder:{}, subs:{}, collapsed:{}, briefNonce:{}, planVersion:PLAN_VERSION, baseXP:0, calUrl:""};
+  S = {log:{}, todos:[], sched:[], studyOrder:{}, planOrder:{}, studyAdd:{}, subs:{}, collapsed:{}, briefNonce:{}, planVersion:PLAN_VERSION, baseXP:0, calUrl:""};
   UI.confirmReset = false;
   persist();
   updateHeader(); renderBrief(); renderContent(false);
@@ -2376,6 +2385,8 @@ document.addEventListener("click", e => {
     renderContent(false);
   }
   else if (a==="addsched") addSched(el.dataset.date);
+  else if (a==="addstudy") addStudy();
+  else if (a==="delstudy") delStudy(+el.dataset.id);
   else if (a==="subtoggle") toggleSub(el.dataset.subkey, +el.dataset.subid, e);
   else if (a==="subadd") addSub(el.dataset.subkey);
   else if (a==="subdel") delSub(el.dataset.subkey, +el.dataset.subid);
@@ -2427,7 +2438,8 @@ document.addEventListener("click", e => {
 
 document.addEventListener("keydown", e => {
   if (e.key!=="Enter") return;
-  if (e.target.id==="questInput") addQuest();
+  if (e.target.id==="studyInput") addStudy();
+  else if (e.target.id==="questInput") addQuest();
   else if (e.target.id==="schedInput") addSched(e.target.dataset.date);
   else if (e.target.id==="subInput") addSub(e.target.dataset.subkey);
 });
