@@ -33,7 +33,7 @@
   :root{
     --bg:#0B0E14; --card:#13171F; --border:#1E2430; --inset:#0E1118;
     --amber:#FFB02E; --coral:#FF6B3D; --green:#34D399;
-    --text:#F4F4F5; --dim:#8B93A3; --faint:#5A6172;
+    --text:#F4F4F5; --dim:#9AA3B4; --faint:#7D879A;
     --grad:linear-gradient(135deg,#FFB02E,#FF6B3D);
     --spring:cubic-bezier(.34,1.45,.64,1);
     --ease:cubic-bezier(.22,1,.36,1);
@@ -484,6 +484,7 @@
       transition-duration:.01ms!important;scroll-behavior:auto!important}
   }
 </style>
+<link rel="stylesheet" href="dial-v2.css">
 </head>
 <body>
 <div id="intro">
@@ -521,8 +522,9 @@
 <div id="confetti"></div>
 <div id="bannerWrap"></div>
 <div id="flashWrap"></div>
+<div id="focusLayer" aria-live="polite"></div>
 
-<div class="wrap">
+<main class="wrap">
   <div class="top-grid">
   <div class="hero">
     <div class="hero-top">
@@ -558,12 +560,12 @@
   </div>
 
   <div id="content"></div>
-</div>
+</main>
 
 <input type="file" id="importFile" accept="application/json" hidden>
 <input type="file" id="icsFile" accept=".ics,text/calendar" hidden>
 
-<nav id="nav">
+<nav id="nav" aria-label="Primary">
   <div class="nav-inner">
     <span id="navPill"></span>
     <button data-act="tab" data-tab="today"><span class="ico">&#9673;</span><span class="lbl">Today</span></button>
@@ -575,9 +577,9 @@
 <script>
 'use strict';
 /* ================= CONFIG ================= */
-const BUILD = "07-17.8"; // bump on each deploy — shown at the bottom of Today
-const EXAM = new Date(2026,7,20);
-const PASS_LINE = 300, DAILY_TARGET = 40;
+const BUILD = "07-23.1"; // bump on each deploy — shown at the bottom of Today
+let EXAM = new Date(2026,7,20);
+let PASS_LINE = 300, DAILY_TARGET = 40;
 const SAYINGS = [
   "DO IT TODAY",
   "VOLUME NEGATES LUCK",
@@ -670,7 +672,9 @@ const tkey = () => dkey(new Date());
 const parseKey = k => { const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
 const mondayOf = d => { const x=new Date(d); const day=x.getDay(); x.setDate(x.getDate()+(day===0?-6:1-day)); x.setHours(0,0,0,0); return x; };
 const fmtTime = mins => { let h=Math.floor(mins/60); const m=mins%60; const ap=h>=12?"pm":"am"; h=h%12||12; return h+":"+String(m).padStart(2,"0")+ap; };
-const dayOfYear = d => Math.floor((d - new Date(d.getFullYear(),0,0))/86400000);
+const dayOfYear = d => Math.floor(
+  (Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()) - Date.UTC(d.getFullYear(),0,0)) / 86400000
+);
 const daysToExam = () => { const n=new Date(); return Math.max(0, Math.ceil((EXAM - new Date(n.getFullYear(),n.getMonth(),n.getDate()))/86400000)); };
 
 const planFor = key => {
@@ -701,12 +705,16 @@ const dayXP = (key, e, todos, sched) => {
   for (const s of sched||[]) if (s.done && s.date===key) xp += XPV.sched;
   // nested sub-items: +2 each, banked on the day they were checked
   if (S && S.subs) for (const kk in S.subs) for (const sb of S.subs[kk]) if (sb.done && sb.doneOn===key) xp += XPV.sub;
+  // evidence-based learning and completed calibrations
+  if (S && S.studySessions) for (const ss of S.studySessions) if (ss.date===key) xp += Number(ss.xp)||0;
+  if (S && S.weeklyReviews) for (const wr of S.weeklyReviews) if (wr.completedOn===key) xp += Number(wr.xp)||0;
   return xp;
 };
 
 const streakBonuses = log => {
   const weeks = {};
   for (const k of Object.keys(log)) {
+    if (k>tkey()) continue;
     const d = parseKey(k), dow = d.getDay();
     if (dow>=1 && dow<=6 && log[k].gym) { const wk=dkey(mondayOf(d)); weeks[wk]=(weeks[wk]||0)+1; }
   }
@@ -718,6 +726,8 @@ const allDayKeys = (log,todos,sched) => {
   for (const t of todos||[]) if (t.done && t.doneOn) keys.add(t.doneOn);
   for (const s of sched||[]) if (s.done) keys.add(s.date);
   if (S && S.subs) for (const kk in S.subs) for (const sb of S.subs[kk]) if (sb.done && sb.doneOn) keys.add(sb.doneOn);
+  if (S && S.studySessions) for (const ss of S.studySessions) if (ss.date) keys.add(ss.date);
+  if (S && S.weeklyReviews) for (const wr of S.weeklyReviews) if (wr.completedOn) keys.add(wr.completedOn);
   return [...keys];
 };
 
@@ -738,6 +748,7 @@ const dayDebt = key => {
   return owed;
 };
 const totalDebt = () => {
+  if (S && S.schemaVersion>=2 && S.recovery) return Math.max(0, Number(S.recovery.debt)||0);
   let sum = 0;
   const d = parseKey(STAKES_START), stop = tkey();
   for (let i=0;i<400 && dkey(d)<stop;i++) { sum += dayDebt(dkey(d)); d.setDate(d.getDate()+1); }
@@ -751,7 +762,7 @@ const weekDebt = () => {
 };
 
 const totalXP = (log,todos,sched) =>
-  Math.max(0, allDayKeys(log,todos,sched).reduce((s,k)=>s+dayXP(k,log[k],todos,sched),0)
+  Math.max(0, allDayKeys(log,todos,sched).filter(k=>k<=tkey()).reduce((s,k)=>s+dayXP(k,log[k],todos,sched),0)
     + streakBonuses(log) + ((S && S.baseXP)||0) - totalDebt());
 
 const weekStats = (log,todos,sched,today) => {
@@ -822,17 +833,20 @@ const PLAN_VERSION = 4; // bump when STUDY_PLAN is replaced — clears stale per
 function loadState() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
-    const s = { log:raw.log||{}, todos:raw.todos||[], sched:raw.sched||[],
+    const s = Object.assign({}, raw, { log:raw.log||{}, todos:raw.todos||[], sched:raw.sched||[],
       studyOrder:raw.studyOrder||{}, planOrder:raw.planOrder||{}, studyAdd:raw.studyAdd||{},
       subs:raw.subs||{}, collapsed:raw.collapsed||{}, briefNonce:raw.briefNonce||{},
       planVersion:raw.planVersion, updatedAt:raw.updatedAt||0,
       // one-time career restore: existing installs without baseXP start at Sr Associate
       baseXP:raw.baseXP===undefined ? 990 : raw.baseXP,
-      calUrl:raw.calUrl||"" };
+      calUrl:raw.calUrl||"" });
     // new CFA schedule supersedes any saved per-day study reorders (which referenced old task names)
     if (s.planVersion !== PLAN_VERSION) { s.studyOrder = {}; s.planVersion = PLAN_VERSION; }
     return s;
-  } catch(e) { return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},studyAdd:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0,baseXP:990,calUrl:""}; }
+  } catch(e) {
+    try { localStorage.setItem("dial-corrupt-recovery-"+Date.now(),localStorage.getItem(STORE_KEY)||""); } catch(_){}
+    return {log:{},todos:[],sched:[],studyOrder:{},planOrder:{},studyAdd:{},subs:{},collapsed:{},briefNonce:{},planVersion:PLAN_VERSION,updatedAt:0,baseXP:990,calUrl:""};
+  }
 }
 let S = loadState();
 // silent=true skips the edit timestamp + cloud push (boot migrations, applying pulled state)
@@ -864,12 +878,12 @@ async function syncFindOrCreateGist(){
   return id;
 }
 function syncApplyRemote(remote){
-  S = {log:remote.log||{}, todos:remote.todos||[], sched:remote.sched||[],
+  S = Object.assign({}, remote, {log:remote.log||{}, todos:remote.todos||[], sched:remote.sched||[],
     studyOrder:remote.studyOrder||{}, planOrder:remote.planOrder||{}, studyAdd:remote.studyAdd||{},
     subs:remote.subs||{}, collapsed:remote.collapsed||{}, briefNonce:remote.briefNonce||{},
     planVersion:remote.planVersion, updatedAt:remote.updatedAt||0,
     baseXP:remote.baseXP===undefined ? 990 : remote.baseXP,
-    calUrl:remote.calUrl||""};
+    calUrl:remote.calUrl||""});
   if (S.planVersion !== PLAN_VERSION) { S.studyOrder = {}; S.planVersion = PLAN_VERSION; }
   persist(true);
   updateHeader(); renderBrief(); renderContent(false);
@@ -931,8 +945,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState==="visible") syncPull();
   else { clearTimeout(SYNC.timer); syncPush(); }
 });
-setInterval(syncPull, 180000);
-syncPull();
+setInterval(()=>syncPull(), 180000);
 
 const TAB_ORDER = {today:0,network:1,plan:2};
 const UI = {tab:"today", addingFor:null, addingSubFor:null, focusSub:false, newQuestXP:5, confirmReset:false, curKey:tkey(),
@@ -1333,10 +1346,11 @@ function rowHTML(o) {
       + (d.id!=null?" data-id='"+d.id+"'":"")
       + (d.sidx!=null?" data-sidx='"+d.sidx+"'":"")
       + (d.dkey?" data-dkey='"+d.dkey+"'":"")
+      + (d.added?" data-added='1'":"")
       + " data-label='"+esc(o.label)+"' data-done='"+(o.done?1:0)+"'";
   }
   return "<div class='row"+(o.next?" next-up":"")+(d?" drow":"")+"'"+dattr+">"
-    + "<button class='rowbtn' data-act='toggle' data-key='"+o.key+"'>"
+    + "<button class='rowbtn' data-act='toggle' data-key='"+o.key+"' aria-pressed='"+(o.done?"true":"false")+"'>"
     + "<span class='check"+(o.done?" done":"")+just+"'>"+(o.done?CHECK_SVG:"")+"</span>"
     + "<span class='rowmain'><span class='rowlabel"+(o.done?" donetext":"")+"'>"+esc(o.label)+"</span>"
     + (o.sub?"<span class='rowsub'>"+esc(o.sub)+"</span>":"")
@@ -1358,7 +1372,7 @@ function subControlsHTML(key) {
   const collapsed = !!S.collapsed[key];
   let h = "";
   if (n) {
-    h += "<button class='caret"+(collapsed?"":" open")+"' data-act='subexpand' data-subkey=\""+esc(key)+"\" aria-label='Expand'>"
+    h += "<button class='caret"+(collapsed?"":" open")+"' data-act='subexpand' data-subkey=\""+esc(key)+"\" aria-label='"+(collapsed?"Expand":"Collapse")+"' aria-expanded='"+(!collapsed)+"'>"
       + "<span class='carico'>›</span><span class='subcount"+(done===n?" all":"")+"'>"+done+"/"+n+"</span></button>";
   }
   h += "<button class='subadd' data-act='subaddopen' data-subkey=\""+esc(key)+"\" aria-label='Add sub-item'>+</button>";
@@ -1449,7 +1463,7 @@ function toggleCollapse(key) {
 }
 
 function barHTML(id, pct, green, ticks) {
-  return "<div class='bar'>"
+  return "<div class='bar' role='progressbar' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+Math.round(pct)+"'>"
     + (ticks?"<span class='tick' style='left:25%'></span><span class='tick' style='left:50%'></span><span class='tick' style='left:75%'></span>":"")
     + "<div class='fill"+(green?" green":"")+(pct<=0?" empty":"")+"' data-fill='"+id+"' data-pct='"+pct+"'></div></div>";
 }
@@ -1480,8 +1494,9 @@ function todayHTML() {
   const lvlIdx = levelFor(total).idx;
   const wkPct = Math.min(100, Math.round(wk.xp/PASS_LINE*100));
   const todaySched = S.sched.filter(s=>s.date===key);
-  const visible = S.todos.filter(t=>!t.done || t.doneOn===key);
-  const openCount = S.todos.filter(t=>!t.done).length;
+  const visible = S.todos.filter(t=>(t.done&&t.doneOn===key) || (!t.done &&
+    (!t.status||["active","scheduled"].includes(t.status)) && (!t.scheduledFor||t.scheduledFor<=key)));
+  const openCount = S.todos.filter(t=>!t.done&&(!t.status||["active","scheduled"].includes(t.status))).length;
   const nextTask = plan.findIndex((_,i)=>!(entry.tasks && entry.tasks[i]));
   let left = "", right = "", data = "";
 
@@ -1522,7 +1537,7 @@ function todayHTML() {
     + plan.map((label,i)=>(i?"<div class='divider'></div>":"")+rowHTML(Object.assign({
         key:"task-"+i, done:!!(entry.tasks && entry.tasks[i]), label, xp:XPV.task, next:i===nextTask,
         subKey:"s:"+key+"|"+label,
-        drag:{group:"tstudy", kind:"study", sidx:i}
+        drag:{group:"tstudy", kind:"study", sidx:i, added:i>=cfaBaseCount}
       }, i>=cfaBaseCount ? {delAct:"delstudy", delId:i} : {}))).join("")
     + "</div>"
     + (plan.length===0 ? "<div class='rowsub' style='padding:2px 0 0'>Nothing booked. Add today's CFA work above.</div>" : "")
@@ -1545,8 +1560,12 @@ function todayHTML() {
         key:"quest-"+t.id, done:t.done, label:t.label, xp:t.xp, delAct:"delquest", delId:t.id,
         subKey:"t:"+t.id,
         drag:{group:"todos", kind:"todo", id:t.id},
-        sub: (!t.done && t.createdOn && t.createdOn!==key)
-          ? "Carried over since "+(parseKey(t.createdOn).getMonth()+1)+"/"+parseKey(t.createdOn).getDate() : null
+        sub: !t.done ? [
+          t.estimateMin ? t.estimateMin+" min" : null,
+          t.importance===3 ? "Must-win" : t.importance===1 ? "Could" : null,
+          (t.createdOn && t.createdOn!==key)
+            ? "Carried since "+(parseKey(t.createdOn).getMonth()+1)+"/"+parseKey(t.createdOn).getDate() : null
+        ].filter(Boolean).join(" · ") : null
       })).join("")
     + "</div>"
     + (visible.length===0?"<div class='rowsub' style='padding-top:8px'>Open to-dos roll over until cleared.</div>":"")
@@ -1558,7 +1577,7 @@ function todayHTML() {
         sub:"Streak: "+streak+" "+(streak===1?"day":"days")+" · "+wk.gymDays+"/6 this week · resets Monday"+(wk.gymDays>=6?" · +20 booked":"")})
     + "<div class='divider'></div>"
     + rowHTML({key:"lights", done:!!entry.lights, label:"Lights out by 11:30", xp:XPV.lights, subKey:"h:"+key+"|lights",
-        sub:"Tap it tomorrow morning if you made it"})
+        sub:"Confirm it before sleep so the correct night is recorded"})
     + (dow===0 ? "<div class='divider'></div>"+rowHTML({key:"review", done:!!entry.review, label:"Weekly review + tally", xp:XPV.review, subKey:"h:"+key+"|review"}) : "")
     + "</div>";
 
@@ -1695,14 +1714,16 @@ function planHTML() {
     const habitItems = items.filter(it=>it.kind==="habit");
     h += "<div class='drop-list' data-group='plan:"+k+"' data-cross='1'>"
       + dndItems.map((it,j)=>(j?"<div class='divider'></div>":"")+rowHTML({
-          key: it.kind==='event' ? "pevent:"+it.id : "pstudy:"+k+":"+it.sidx,
-          done: it.done, label: it.label, xp: it.xp,
-          tag: it.kind==='event' ? "Event" : null,
-          delAct: it.kind==='event' ? "delsched" : null, delId: it.id,
-          subKey: it.kind==='event' ? "e:"+it.id : "s:"+k+"|"+it.label,
+          key: it.kind==='event' ? "pevent:"+it.id : it.kind==='todo' ? "ptodo:"+it.id : "pstudy:"+k+":"+it.sidx,
+          done: it.done, label: it.label, xp: it.xp, sub:it.sub,
+          tag: it.kind==='event' ? "Event" : it.kind==='todo' ? "Task" : null,
+          delAct: it.kind==='event' ? "delsched" : it.kind==='todo' ? "delquest" : null, delId: it.id,
+          subKey: it.kind==='event' ? "e:"+it.id : it.kind==='todo' ? "t:"+it.id : "s:"+k+"|"+it.label,
           drag: it.kind==='event'
             ? {group:"plan:"+k, cross:true, kind:"event", id:it.id, dkey:k}
-            : {group:"plan:"+k, cross:true, kind:"study", sidx:it.sidx, dkey:k}
+            : it.kind==='todo'
+              ? {group:"plan:"+k, cross:true, kind:"todo", id:it.id, dkey:k}
+              : {group:"plan:"+k, cross:true, kind:"study", sidx:it.sidx, dkey:k, added:!!it.added}
         })).join("")
       + "</div>";
 
@@ -1786,7 +1807,11 @@ function hydrateSelectableCards(root) {
 function updateNav() {
   const idx = TAB_ORDER[UI.tab];
   qs("#navPill").style.left = "calc(12px + "+idx+" * (100% - 24px) / 3)";
-  qsa("#nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===UI.tab));
+  qsa("#nav button").forEach(b=>{
+    const active=b.dataset.tab===UI.tab;
+    b.classList.toggle("active",active);
+    if (active) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  });
 }
 
 function setTab(t) {
@@ -1933,8 +1958,6 @@ function addStudy() {
   mutate(()=>{
     if (!S.studyAdd[key]) S.studyAdd[key] = [];
     S.studyAdd[key].push(label);
-    // if the day was manually reordered, the reordered list is the base — keep it in sync
-    if (Array.isArray(S.studyOrder[key])) S.studyOrder[key] = null;
   });
 }
 function delStudy(idx) {
@@ -1956,12 +1979,16 @@ function delStudy(idx) {
 function getStudyList(k) {
   const labels = planFor(k);
   const done = (S.log[k] && S.log[k].tasks) || {};
-  return labels.map((label,i)=>({label, done:!!done[i]}));
+  const baseCount = labels.length-studyAddCount(k);
+  return labels.map((label,i)=>({label, done:!!done[i], added:i>=baseCount}));
 }
 function setStudyList(k, list) {
-  S.studyOrder[k] = list.map(x=>x.label);
+  const base = list.filter(x=>!x.added), extra = list.filter(x=>x.added);
+  S.studyOrder[k] = base.map(x=>x.label);
+  S.studyAdd[k] = extra.map(x=>x.label);
+  const normalized = [...base,...extra];
   const tasks = {};
-  list.forEach((x,i)=>{ if (x.done) tasks[i]=true; });
+  normalized.forEach((x,i)=>{ if (x.done) tasks[i]=true; });
   const e = S.log[k] || {};
   S.log[k] = Object.assign({}, e, {tasks});
 }
@@ -1971,12 +1998,20 @@ function planItems(k) {
   const seen = {};
   const study = studyLabels.map((label,i)=>{
     const occ = seen[label] = (seen[label]||0); seen[label]++;
-    return {token:"s"+occ+"|"+label, kind:"study", label, done:!!doneMap[i], sidx:i, xp:XPV.task};
+    return {token:"s"+occ+"|"+label, kind:"study", label, done:!!doneMap[i], sidx:i, xp:XPV.task,
+      added:i>=studyLabels.length-studyAddCount(k)};
   });
   const events = S.sched.filter(s=>s.date===k).map(s=>(
     {token:"e"+s.id, kind:"event", id:s.id, label:s.label, done:!!s.done, xp:XPV.sched}
   ));
-  let items = [...events, ...study];
+  const todos = S.todos.filter(t=>
+    !["archived","backlog"].includes(t.status) &&
+    (t.scheduledFor||t.createdOn)===k
+  ).map(t=>(
+    {token:"t"+t.id, kind:"todo", id:t.id, label:t.label, done:!!t.done, xp:t.xp||5,
+      sub:(t.estimateMin||30)+" min · "+(t.importance===3?"Must-win":t.importance===1?"Could":"Should")}
+  ));
+  let items = [...events, ...todos, ...study];
   const ord = S.planOrder && S.planOrder[k];
   if (Array.isArray(ord)) {
     const m = new Map(items.map(it=>[it.token,it]));
@@ -1997,26 +2032,48 @@ function planItems(k) {
 }
 /* write a day's full merged order back into the canonical stores */
 function applyDayOrder(k, items) {
-  setStudyList(k, items.filter(it=>it.kind==="study").map(it=>({label:it.label, done:it.done})));
+  setStudyList(k, items.filter(it=>it.kind==="study").map(it=>({label:it.label, done:it.done, added:!!it.added})));
   items.filter(it=>it.kind==="event").forEach(it=>{
     const s = S.sched.find(s=>s.id===it.id);
     if (s) { s.date = k; s.done = it.done; }
   });
+  items.filter(it=>it.kind==="todo").forEach(it=>{
+    const t = S.todos.find(t=>String(t.id)===String(it.id));
+    if (t) {
+      t.scheduledFor = k;
+      if (!t.done && !["blocked","archived","backlog"].includes(t.status))
+        t.status = k<=tkey() ? "active" : "scheduled";
+      t.updatedAt = Date.now();
+    }
+  });
   const seen = {};
   S.planOrder[k] = items.map(it=>{
     if (it.kind==="event") return "e"+it.id;
+    if (it.kind==="todo") return "t"+it.id;
     const occ = seen[it.label] = (seen[it.label]||0); seen[it.label]++;
     return "s"+occ+"|"+it.label;
   });
 }
 function togglePlanEvent(id, key, ev) {
   const s = S.sched.find(s=>s.id===id); if (!s) return;
+  if (s.date>tkey()) { toneLow(); flash("Future work cannot be completed early"); return; }
   const on = !s.done;
   lastFX.key = on ? key : null;
   mutate(()=>{ s.done = on; }, ev);
   if (!on) audioCue("undo");
 }
+function togglePlanTodo(id, key, ev) {
+  const t = S.todos.find(t=>String(t.id)===String(id)); if (!t) return;
+  if ((t.scheduledFor||t.createdOn)>tkey()) { toneLow(); flash("Future work cannot be completed early"); return; }
+  const on = !t.done;
+  lastFX.key = on ? key : null;
+  mutate(()=>{
+    t.done=on; t.doneOn=on?tkey():null; t.status=on?"done":"active"; t.updatedAt=Date.now();
+  }, ev);
+  if (!on) audioCue("undo");
+}
 function toggleHabitAt(dateKey, field, key, ev) {
+  if (dateKey>tkey()) { toneLow(); flash("Future habits cannot be banked"); return; }
   const e = S.log[dateKey] || {};
   const on = !e[field];
   lastFX.key = on ? key : null;
@@ -2024,6 +2081,7 @@ function toggleHabitAt(dateKey, field, key, ev) {
   if (!on) audioCue("undo");
 }
 function toggleStudyAt(dateKey, sidx, key, ev) {
+  if (dateKey>tkey()) { toneLow(); flash("Future study cannot be banked"); return; }
   const e = S.log[dateKey] || {};
   const tasks = Object.assign({}, e.tasks||{});
   const on = !tasks[sidx];
@@ -2037,13 +2095,18 @@ function toggleStudyAt(dateKey, sidx, key, ev) {
 const clampi = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 function planDndItems(k){ return planItems(k).filter(it=>it.kind!=="habit"); }
 function detachItem(item){
-  return item.kind==="event"
-    ? {kind:"event", id:item.id, label:item.label, done:item.done}
-    : {kind:"study", label:item.label, done:item.done};
+  if (item.kind==="event") return {kind:"event", id:item.id, label:item.label, done:item.done};
+  if (item.kind==="todo") {
+    const t=S.todos.find(t=>String(t.id)===String(item.id));
+    return {kind:"todo",id:item.id,label:item.label,done:item.done,xp:t?t.xp:5,
+      sub:t?(t.estimateMin||30)+" min":""};
+  }
+  return {kind:"study", label:item.label, done:item.done, added:!!item.added};
 }
 function matchesItem(it, item){
-  return item.kind==="event" ? (it.kind==="event" && it.id===item.id)
-                             : (it.kind==="study" && it.sidx===item.sidx);
+  if (item.kind==="event") return it.kind==="event" && String(it.id)===String(item.id);
+  if (item.kind==="todo") return it.kind==="todo" && String(it.id)===String(item.id);
+  return it.kind==="study" && it.sidx===item.sidx;
 }
 function commitDrop(info){
   const { group:srcG, targetGroup, dropIndex, item } = info;
@@ -2265,6 +2328,7 @@ function startDrag() {
     sidx: row.dataset.sidx!=null ? +row.dataset.sidx : null,
     label: row.dataset.label || "",
     done: row.dataset.done === "1",
+    added: row.dataset.added === "1",
   };
   Drag.state = { row, clone, indicator, item,
     group:list.dataset.group, cross:list.dataset.cross==="1", origin:list,
@@ -2367,6 +2431,7 @@ document.addEventListener("click", e => {
     else if (k.indexOf("quest-")===0) toggleQuest(+k.slice(6), e);
     else if (k.indexOf("sched-")===0) toggleSched(+k.slice(6), e);
     else if (k.indexOf("pevent:")===0) togglePlanEvent(+k.slice(7), k, e);
+    else if (k.indexOf("ptodo:")===0) togglePlanTodo(k.slice(6), k, e);
     else if (k.indexOf("pstudy:")===0) { const p=k.split(":"); toggleStudyAt(p[1], +p[2], k, e); }
     else if (k.indexOf("phabit:")===0) { const p=k.split(":"); toggleHabitAt(p[1], p[2], k, e); }
     else toggleEntry(k, e);
@@ -2485,6 +2550,7 @@ calSync(false);
   setTimeout(kill, 2950);
 })();
 </script>
+<script src="dial-v2.js"></script>
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script>
 </body>
 </html>
