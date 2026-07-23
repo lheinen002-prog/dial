@@ -389,17 +389,6 @@ async function initSecureToken(){
     if (SYNC.token) await syncPull();
   }catch(e){}
 }
-async function stageNativeCredentialMove(){
-  try{
-    if(!window.dialKeychain)throw new Error("native bridge unavailable");
-    const token=await window.dialKeychain.getToken();
-    if(!token)throw new Error("credential unavailable");
-    localStorage.setItem(SYNC.TOKEN_KEY,token);
-    await window.dialKeychain.deleteToken();
-    v2NativeToken="";
-    flash("Credential staged — quit this test copy, then open the installed DIAL");
-  }catch(e){flash("Credential staging failed","error");}
-}
 syncConnect=async function(token){
   await storeToken(token);
   localStorage.removeItem(SYNC.GIST_KEY);
@@ -1037,9 +1026,7 @@ function trustCardHTML(){
     +(storageHealth.ok?"":" error")+"'>"+esc(storageHealth.message)+"</span><span>Hourly snapshots · 5 retained</span></div>"
     +"<div class='trust-row' style='margin-top:8px'><span>Sync credential</span><span>"+(secure?"macOS Keychain":"Browser storage fallback")+"</span></div>"
     +"<div class='v2-actions' style='margin-top:12px'><button class='v2-btn' data-v2='settings-toggle'>"
-    +(UI.v2SettingsOpen?"Close settings":"Goal & system settings")+"</button>"
-    +(secure&&SYNC.token?"<button class='v2-btn' data-v2='credential-stage'>Move credential to installed DIAL</button>":"")
-    +"</div>"
+    +(UI.v2SettingsOpen?"Close settings":"Goal & system settings")+"</button></div>"
     +(UI.v2SettingsOpen?settingsFormHTML():"")+"</div>";
 }
 function settingsFormHTML(){
@@ -1300,7 +1287,6 @@ document.addEventListener("click",e=>{
     else if(a==="touch-save")saveTouch(v.dataset.id);
     else if(a==="settings-toggle"){UI.v2SettingsOpen=!UI.v2SettingsOpen;renderContent(false);}
     else if(a==="settings-save")saveSettings();
-    else if(a==="credential-stage")stageNativeCredentialMove();
     else if(a==="go-today-learning"){setTab("today");UI.v2StudyOpen=true;renderContent(false);}
     return;
   }

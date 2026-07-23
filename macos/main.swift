@@ -53,7 +53,7 @@ private enum DialKeychainError: LocalizedError {
 }
 
 private enum DialKeychain {
-    private static let service = "com.lmh.lucashq"
+    private static let service = "com.lmh.lucashq.v2"
     private static let account = "dial-sync-token"
 
     private static var lookupQuery: [String: Any] {

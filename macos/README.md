@@ -13,7 +13,7 @@ web app.
 - Blob downloads initiated by the trusted DIAL page are saved to Downloads.
 - The Keychain message handler rejects non-main-frame and non-DIAL origins.
 - The token is stored as a generic-password item with service
-  `com.lmh.lucashq`, account `dial-sync-token`, and
+  `com.lmh.lucashq.v2`, account `dial-sync-token`, and
   `AfterFirstUnlockThisDeviceOnly` accessibility.
 
 The page receives this promise API at document start:
